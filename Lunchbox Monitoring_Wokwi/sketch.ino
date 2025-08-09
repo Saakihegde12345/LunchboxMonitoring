@@ -1,20 +1,3 @@
-/*
-  Smart Lunchbox - ESP32 (Wokwi)
-  Publishes telemetry/events to test.mosquitto.org (MQTT TCP port 1883)
-  HiveMQ (web) client can connect to same broker via WebSockets (port 8081)
-  
-  Hardware:
-  - ESP32 DevKit
-  - MPU6050 Accelerometer
-  - DS18B20 Temperature Sensor
-  - DHT22 Temperature/Humidity Sensor
-  - MQ-135 Gas Sensor
-  - Push Button (Box Open/Close)
-  - RGB LED (Status)
-  - Buzzer (Alerts)
-  - Potentiometer (Weight Simulation)
-*/
-
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <OneWire.h>
@@ -26,34 +9,32 @@
 #include "azure_iot.h"
 
 // ===== CONFIG =====
-const char* ssid = "Wokwi-GUEST";   // Wokwi network
-const char* password = "";          // Wokwi guest has no password
+const char* ssid = "Wokwi-GUEST";
+const char* password = "";
 
-// MQTT settings for local testing (fallback)
+// Set to false to use a local MQTT broker instead of Azure
+const bool useAzureIoT = true;
+
+// --- Local MQTT Broker Settings ---
 const char* mqtt_server = "test.mosquitto.org";
 const uint16_t mqtt_port = 1883;
 const char* device_id = "lunchbox_esp32_sim";
-
-// Telemetry topics
 String topic_telemetry = String("lunchbox/") + device_id + "/telemetry";
 String topic_events = String("lunchbox/") + device_id + "/events";
 
-// Azure IoT Hub settings (override in azure_iot.h)
-bool useAzureIoT = true;  // Set to false to use local MQTT broker
-
 // ===== PINS =====
-#define POT_PIN 35      // Potentiometer for weight simulation
-#define ONEWIRE_PIN 25  // DS18B20 temperature sensor
-#define DHTPIN 26       // DHT22 temperature/humidity sensor
-#define MQ2_PIN 34      // MQ-135 gas sensor
-#define BOX_PIN 27      // Push button for box open/close
-#define LED_R 14        // RGB LED Red
-#define LED_G 12        // RGB LED Green
-#define LED_B 13        // RGB LED Blue
-#define BUZZER 15       // Buzzer for alerts
-#define SDA_PIN 21      // I2C SDA for MPU6050
-#define SCL_PIN 22      // I2C SCL for MPU6050
-#define CAMERA_BTN 4    // Button to simulate camera capture
+#define POT_PIN 35
+#define ONEWIRE_PIN 25
+#define DHTPIN 26
+#define MQ2_PIN 34
+#define BOX_PIN 27
+#define LED_R 14
+#define LED_G 12
+#define LED_B 13
+#define BUZZER 15
+#define SDA_PIN 21
+#define SCL_PIN 22
+#define CAMERA_BTN 4
 
 // ===== SENSORS =====
 OneWire oneWire(ONEWIRE_PIN);
@@ -63,32 +44,26 @@ Adafruit_MPU6050 mpu;
 
 // ===== MQTT / WiFi =====
 WiFiClient espClient;
-PubSubClient mqttClient(espClient);
-
-// Azure IoT Hub client
-#ifdef IOTHUB_HOSTNAME
-#undef IOTHUB_HOSTNAME
-#endif
-#define IOTHUB_HOSTNAME "your-iot-hub.azure-devices.net"  // Replace with your IoT Hub hostname
+WiFiClientSecure secureEspClient; // For Azure
+PubSubClient mqttClient;
 
 // ===== State & thresholds =====
 float lastWeight = 0.0;
 unsigned long lastWeightTime = 0;
-const float weightThresholdConsume = 5.0;   // grams
-const float weightThresholdSharePct = 35.0; // percent
-const unsigned long shareWindowMs = 8000;   // ms
-const float unsafeTempC = 60.0;             // temperature threshold (°C)
-const int unsafeGasLevel = 3000;            // ADC threshold for gas sensor
-const int loopIntervalMs = 2000;            // telemetry interval
-const float movementThreshold = 2.0;         // m/s² for movement detection
-const int faceRecognitionTimeout = 5000;     // ms between face recognition attempts
+const float weightThresholdConsume = 5.0;
+const float weightThresholdSharePct = 35.0;
+const unsigned long shareWindowMs = 8000;
+const float unsafeTempC = 60.0;
+const int unsafeGasLevel = 3000;
+const int loopIntervalMs = 2000;
+const float movementThreshold = 2.0;
+const int faceRecognitionTimeout = 5000;
 
 unsigned long lastLoop = 0;
 unsigned long lastHeartbeat = 0;
 
 // ===== Helpers =====
 void setRGB(bool r, bool g, bool b) {
-  // common-cathode: LOW = ON in many Wokwi parts; adjust if needed
   digitalWrite(LED_R, r ? LOW : HIGH);
   digitalWrite(LED_G, g ? LOW : HIGH);
   digitalWrite(LED_B, b ? LOW : HIGH);
@@ -100,56 +75,42 @@ void beep(int ms) {
   digitalWrite(BUZZER, LOW);
 }
 
-void mqttPublish(const char* topic, const String &payload) {
-  if (useAzureIoT) {
-    // Use Azure IoT Hub
-    if (isAzureConnected()) {
-      azurePublish(AZURE_IOT_HUB_TOPIC, payload.c_str());
-    } else {
-      Serial.println("Azure IoT Hub not connected, attempting to reconnect...");
-      azureConnect();
-    }
+void mqttPublish(const String &topic, const String &payload) {
+  if (mqttClient.connected()) {
+    mqttClient.publish(topic.c_str(), payload.c_str());
   } else {
-    // Fallback to local MQTT
-    if (mqttClient.connected()) {
-      mqttClient.publish(topic, payload.c_str());
-    } else {
-      Serial.println("MQTT not connected, cannot publish.");
-      // Attempt to reconnect
-      if (WiFi.status() == WL_CONNECTED) {
-        mqttClient.connect(device_id);
-      }
-    }
+    Serial.println("MQTT not connected, cannot publish.");
   }
 }
 
-// ===== MQTT reconnect =====
 void reconnect() {
   if (useAzureIoT) {
     if (!isAzureConnected()) {
       Serial.println("Attempting to connect to Azure IoT Hub...");
-      if (!azureConnect()) {
+      // IMPORTANT: You must get a new SAS token here.
+      // This is a placeholder for your token generation logic.
+      const char* sasToken = "PASTE_YOUR_NEW_SAS_TOKEN_HERE";
+      if (!azureConnect(sasToken)) {
         Serial.println("Failed to connect to Azure IoT Hub, will retry...");
       }
     }
   } else {
-    if (mqttClient.connected()) return;
-    Serial.print("Connecting to MQTT...");
-    String clientId = String(device_id) + "-" + String(random(0xffff), HEX);
-    if (mqttClient.connect(clientId.c_str())) {
-      Serial.println("connected to MQTT broker");
-    } else {
-      Serial.print("failed rc=");
-      Serial.print(mqttClient.state());
-      Serial.println(", will retry...");
+    if (!mqttClient.connected()) {
+      Serial.print("Connecting to MQTT broker...");
+      String clientId = String(device_id) + "-" + String(random(0xffff), HEX);
+      if (mqttClient.connect(clientId.c_str())) {
+        Serial.println("connected to MQTT broker");
+      } else {
+        Serial.print("failed rc=");
+        Serial.print(mqttClient.state());
+        Serial.println(", will retry...");
+      }
     }
   }
 }
 
-// ===== read pseudo-weight from potentiometer =====
 float readWeight() {
-  int potVal = analogRead(POT_PIN); // 0-4095
-  // Map to grams (0 - 500 g)
+  int potVal = analogRead(POT_PIN);
   float grams = (float)potVal * (500.0f / 4095.0f);
   return grams;
 }
@@ -158,10 +119,7 @@ void setup() {
   Serial.begin(115200);
   delay(50);
 
-  // Initialize I2C for MPU6050
   Wire.begin(SDA_PIN, SCL_PIN);
-  
-  // Initialize MPU6050
   if (!mpu.begin()) {
     Serial.println("Failed to find MPU6050 chip");
     while (1) {
@@ -172,22 +130,19 @@ void setup() {
   mpu.setGyroRange(MPU6050_RANGE_500_DEG);
   mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
 
-  // pins
   pinMode(LED_R, OUTPUT);
   pinMode(LED_G, OUTPUT);
   pinMode(LED_B, OUTPUT);
   pinMode(BUZZER, OUTPUT);
-  pinMode(BOX_PIN, INPUT_PULLUP); // button to GND
-  pinMode(CAMERA_BTN, INPUT_PULLUP); // button for camera simulation
+  pinMode(BOX_PIN, INPUT_PULLUP);
+  pinMode(CAMERA_BTN, INPUT_PULLUP);
 
-  setRGB(false,false,false);
+  setRGB(false, false, false);
   digitalWrite(BUZZER, LOW);
 
-  // sensors
   sensors.begin();
   dht.begin();
 
-  // WiFi
   Serial.print("Connecting to WiFi ");
   Serial.print(ssid);
   WiFi.begin(ssid, password);
@@ -196,61 +151,52 @@ void setup() {
     Serial.print(".");
     delay(500);
   }
+
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\nWiFi connected. IP:");
     Serial.println(WiFi.localIP());
-    
-    // Initialize time for Azure IoT Hub
     configTime(0, 0, "pool.ntp.org");
-    
-    // Set up MQTT or Azure IoT Hub
+
     if (useAzureIoT) {
-      Serial.println("Using Azure IoT Hub");
-      azureConnect();
+        secureEspClient.setCACert(root_ca);
+        mqttClient.setClient(secureEspClient);
+        mqttClient.setServer(IOTHUB_HOSTNAME, 8883);
+        mqttClient.setCallback(mqttCallback);
     } else {
-      Serial.println("Using local MQTT broker");
-      mqttClient.setServer(mqtt_server, mqtt_port);
-      mqttClient.setBufferSize(2048);  // Increase buffer size for larger messages
+        mqttClient.setClient(espClient);
+        mqttClient.setServer(mqtt_server, mqtt_port);
     }
+     mqttClient.setBufferSize(2048);
   } else {
-    Serial.println("\nWiFi failed to connect (Wokwi may still allow broker connectivity).");
+    Serial.println("\nWiFi failed to connect.");
   }
 
-  // initial baseline weight
   lastWeight = readWeight();
   lastWeightTime = millis();
-
-  // Send startup event
-  StaticJsonDocument<256> doc;
-  doc["device_id"] = device_id;
-  doc["event"] = "startup";
-  doc["ip"] = WiFi.localIP().toString();
-  String payload; serializeJson(doc, payload);
-  // attempt publish (may fail until connected)
-  if (WiFi.status() == WL_CONNECTED) {
-    reconnect();
-    mqttPublish(topic_events.c_str(), payload);
-  }
-  Serial.println("Setup complete.");
+  reconnect(); // Initial connection attempt
 }
 
+
 void loop() {
-  // ensure MQTT/Azure connected
-  if (useAzureIoT) {
-    azureLoop();  // Handle Azure IoT Hub connection and messages
-    if (!isAzureConnected()) {
-      reconnect();
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("WiFi disconnected. Attempting to reconnect...");
+        WiFi.begin(ssid, password);
+        delay(5000);
+        return;
     }
-  } else {
-    if (!mqttClient.connected()) {
-      reconnect();
+
+    if (useAzureIoT) {
+        azureLoop();
+    } else {
+        if (!mqttClient.connected()) {
+            reconnect();
+        }
+        mqttClient.loop();
     }
-    mqttClient.loop();
-  }
+
 
   unsigned long now = millis();
   if (now - lastLoop < loopIntervalMs) {
-    // but still publish occasional heartbeat every 5s
     if (now - lastHeartbeat > 5000) {
       lastHeartbeat = now;
       if (mqttClient.connected()) {
@@ -259,14 +205,13 @@ void loop() {
         h["event"] = "heartbeat";
         h["ts"] = now;
         String hp; serializeJson(h, hp);
-        mqttPublish(topic_events.c_str(), hp);
+        mqttPublish(topic_events, hp);
       }
     }
     return;
   }
   lastLoop = now;
 
-  // read sensors
   float weight = readWeight();
   sensors.requestTemperatures();
   float tempC = sensors.getTempCByIndex(0);
@@ -275,67 +220,58 @@ void loop() {
   int mqRaw = analogRead(MQ2_PIN);
   bool boxOpen = (digitalRead(BOX_PIN) == LOW);
   bool cameraBtnPressed = (digitalRead(CAMERA_BTN) == LOW);
-  
-  // Read accelerometer data
+
   sensors_event_t a, g, temp;
   mpu.getEvent(&a, &g, &temp);
-  
-  // Calculate movement magnitude
-  float movement = sqrt(a.acceleration.x * a.acceleration.x + 
-                       a.acceleration.y * a.acceleration.y + 
-                       a.acceleration.z * a.acceleration.z);
-  
-  // Check for movement
+  float movement = sqrt(a.acceleration.x * a.acceleration.x + a.acceleration.y * a.acceleration.y + a.acceleration.z * a.acceleration.z);
   bool isMoving = (movement > movementThreshold);
-  
-  // Simulate face recognition when button is pressed
+
   static bool faceRecognized = false;
   static unsigned long lastFaceCheck = 0;
   if (cameraBtnPressed && (millis() - lastFaceCheck > faceRecognitionTimeout)) {
-    faceRecognized = !faceRecognized; // Toggle for simulation
+    faceRecognized = !faceRecognized;
     lastFaceCheck = millis();
     if (faceRecognized) {
       Serial.println("Face recognized: Authorized user");
-      setRGB(false, true, false); // Green for authorized
+      setRGB(false, true, false);
     } else {
       Serial.println("Face not recognized: Unauthorized user");
-      setRGB(true, false, false); // Red for unauthorized
-      beep(200); // Short beep for unauthorized
+      setRGB(true, false, false);
+      beep(200);
     }
   }
 
   Serial.printf("W: %.1f g, TempDS18: %.2f C, DHT_T: %.2f C, H: %.2f %% , MQ: %d, Open:%d\n",
                 weight, tempC, dhtTemp, humidity, mqRaw, boxOpen);
 
-  // publish telemetry
-  StaticJsonDocument<512> tdoc; // Increased size for additional sensors
+  StaticJsonDocument<512> tdoc;
   tdoc["device_id"] = device_id;
   tdoc["ts"] = now;
   tdoc["weight_g"] = weight;
   tdoc["temp_ds18"] = tempC;
   tdoc["temp_dht"] = dhtTemp;
-  
-  // Add accelerometer data
   JsonObject accel = tdoc.createNestedObject("accelerometer");
   accel["x"] = a.acceleration.x;
   accel["y"] = a.acceleration.y;
   accel["z"] = a.acceleration.z;
   accel["movement"] = movement;
   accel["is_moving"] = isMoving;
-  
-  // Add camera/face recognition status
   tdoc["face_recognized"] = faceRecognized;
   tdoc["camera_btn_pressed"] = cameraBtnPressed;
   tdoc["humidity"] = humidity;
   tdoc["mq_raw"] = mqRaw;
   tdoc["box_open"] = boxOpen;
   String tpayload; serializeJson(tdoc, tpayload);
-  mqttPublish(topic_telemetry.c_str(), tpayload);
 
-  // detect consumption / sharing
-  float delta = lastWeight - weight; // positive if weight decreased
+  if(useAzureIoT) {
+      mqttPublish(AZURE_IOT_HUB_TELEMETRY_TOPIC, tpayload);
+  } else {
+      mqttPublish(topic_telemetry, tpayload);
+  }
+
+
+  float delta = lastWeight - weight;
   unsigned long dt = now - lastWeightTime;
-
   if (boxOpen && delta > weightThresholdConsume && dt < 60000) {
     StaticJsonDocument<256> edoc;
     edoc["device_id"] = device_id;
@@ -344,10 +280,10 @@ void loop() {
     edoc["weight_after_g"] = weight;
     edoc["ts"] = now;
     String ep; serializeJson(edoc, ep);
-    mqttPublish(topic_events.c_str(), ep);
+    mqttPublish(topic_events, ep);
     setRGB(true, false, true);
     delay(200);
-    setRGB(false,false,false);
+    setRGB(false, false, false);
   }
 
   if (delta > 0) {
@@ -360,19 +296,18 @@ void loop() {
       sdoc["drop_pct"] = pct;
       sdoc["ts"] = now;
       String sp; serializeJson(sdoc, sp);
-      mqttPublish(topic_events.c_str(), sp);
+      mqttPublish(topic_events, sp);
 
-      for (int i=0;i<3;i++){
-        setRGB(true,false,false);
+      for (int i = 0; i < 3; i++) {
+        setRGB(true, false, false);
         beep(200);
         delay(200);
-        setRGB(false,false,false);
+        setRGB(false, false, false);
         delay(150);
       }
     }
   }
 
-  // Safety checks
   bool safetyIssue = false;
   String safetyReason = "";
   if (!isnan(tempC) && tempC >= unsafeTempC) {
@@ -398,16 +333,16 @@ void loop() {
     sdoc["humidity"] = humidity;
     sdoc["ts"] = now;
     String sp; serializeJson(sdoc, sp);
-    mqttPublish(topic_events.c_str(), sp);
+    mqttPublish(topic_events, sp);
 
-    setRGB(true,true,false);
-    for (int i=0;i<2;i++){
-      beep(150); delay(200);
+    setRGB(true, true, false);
+    for (int i = 0; i < 2; i++) {
+      beep(150);
+      delay(200);
     }
-    setRGB(false,false,false);
+    setRGB(false, false, false);
   }
 
-  // update baseline if changed or after stable interval
   if (abs(delta) > 0.01 || dt > 30000) {
     lastWeight = weight;
     lastWeightTime = now;
