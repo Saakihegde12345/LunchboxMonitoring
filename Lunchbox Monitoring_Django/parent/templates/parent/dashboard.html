@@ -1,0 +1,176 @@
+{% extends "parent/base.html" %}
+
+{% block title %}Dashboard - Parent Portal{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Dashboard</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary">Share</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary">Export</button>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle">
+            <i class="bi bi-calendar3"></i> This week
+        </button>
+    </div>
+</div>
+
+<!-- Alerts -->
+{% if recent_alerts %}
+<div class="alert alert-warning alert-dismissible fade show" role="alert">
+    <h4 class="alert-heading">Recent Alerts</h4>
+    <ul class="mb-0">
+        {% for alert in recent_alerts %}
+        <li>{{ alert.message }} - {{ alert.timestamp|timesince }} ago</li>
+        {% endfor %}
+    </ul>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+
+<!-- Children's Lunchboxes -->
+<h3 class="h4 mb-3">Your Children's Lunchboxes</h3>
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 mb-4">
+    {% for child in children %}
+    <div class="col">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{{ child.name }}</h5>
+                <span class="badge bg-success">Active</span>
+            </div>
+            <div class="card-body">
+                {% if child.lunchbox_assignment %}
+                <div class="mb-3">
+                    <h6 class="card-subtitle mb-2 text-muted">Lunchbox #{{ child.lunchbox_assignment.lunchbox_id }}</h6>
+                    <p class="card-text">
+                        <i class="bi bi-calendar-check me-2"></i>Assigned {{ child.lunchbox_assignment.assigned_date|date:"M d, Y" }}
+                    </p>
+                </div>
+                
+                <div class="mb-3">
+                    <h6>Current Status</h6>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Temperature:</span>
+                        <span class="fw-bold text-success">22°C</span>
+                    </div>
+                    <div class="progress mb-3" style="height: 10px;">
+                        <div class="progress-bar bg-success" role="progressbar" style="width: 65%;" aria-valuenow="65" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Food Consumed:</span>
+                        <span class="fw-bold text-primary">75%</span>
+                    </div>
+                    <div class="progress" style="height: 10px;">
+                        <div class="progress-bar bg-primary" role="progressbar" style="width: 75%;" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-warning mb-0">
+                    <i class="bi bi-exclamation-triangle me-2"></i>No lunchbox assigned
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer bg-transparent">
+                <a href="{% url 'parent:child_detail' child.id %}" class="btn btn-sm btn-outline-primary w-100">
+                    View Details <i class="bi bi-arrow-right ms-2"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>No children registered. Please contact support to add your children.
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Quick Actions -->
+<h3 class="h4 mb-3">Quick Actions</h3>
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <div class="display-4 mb-3 text-primary">
+                    <i class="bi bi-bell"></i>
+                </div>
+                <h5 class="card-title">Notification Settings</h5>
+                <p class="card-text">Configure how you receive alerts and notifications</p>
+                <a href="#" class="btn btn-outline-primary">Configure</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <div class="display-4 mb-3 text-success">
+                    <i class="bi bi-graph-up"></i>
+                </div>
+                <h5 class="card-title">View Reports</h5>
+                <p class="card-text">View detailed reports and analytics</p>
+                <a href="#" class="btn btn-outline-success">View Reports</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <div class="display-4 mb-3 text-warning">
+                    <i class="bi bi-question-circle"></i>
+                </div>
+                <h5 class="card-title">Need Help?</h5>
+                <p class="card-text">Get help with using the parent portal</p>
+                <a href="#" class="btn btn-outline-warning">Get Help</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Recent Activity</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Child</th>
+                        <th>Activity</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for alert in recent_alerts|slice:":5" %}
+                    <tr>
+                        <td>{{ alert.timestamp|timesince }} ago</td>
+                        <td>
+                            {% for child in children %}
+                                {% if child.lunchbox_assignment.lunchbox_id == alert.lunchbox_id %}
+                                    {{ child.name }}
+                                {% endif %}
+                            {% endfor %}
+                        </td>
+                        <td>{{ alert.message }}</td>
+                        <td>
+                            <span class="badge bg-{{ alert.get_severity_display|lower }}">
+                                {{ alert.get_severity_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center">No recent activity</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
