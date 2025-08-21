@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "author": "Saaketh Hegde",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    {
+      "type": "wokwi-dht22",
+      "id": "dht1",
+      "top": -114.9,
+      "left": -82.2,
+      "attrs": { "temperature": "36.7", "humidity": "52.5" }
+    },
+    { "type": "wokwi-gas-sensor", "id": "gas1", "top": -35.7, "left": 131.8, "attrs": {} },
+    { "type": "wokwi-hc-sr04", "id": "ultrasonic1", "top": -123.3, "left": -13.7, "attrs": {} },
+    { "type": "wokwi-pir-motion-sensor", "id": "pir1", "top": 234.4, "left": -26.58, "attrs": {} }
+  ],
+  "connections": [
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+    [ "dht1:VCC", "esp:3V3", "red", [ "v0" ] ],
+    [ "esp:GND.1", "dht1:GND", "black", [ "h0" ] ],
+    [ "dht1:SDA", "esp:26", "green", [ "v0" ] ],
+    [ "gas1:AOUT", "esp:34", "green", [ "h0" ] ],
+    [ "gas1:VCC", "esp:3V3", "red", [ "h0" ] ],
+    [ "gas1:GND", "esp:GND.3", "black", [ "v85.6", "h-168.04" ] ],
+    [ "ultrasonic1:TRIG", "esp:12", "green", [ "v19.2", "h-96.4", "v153.6" ] ],
+    [ "ultrasonic1:ECHO", "esp:14", "green", [ "v28.8", "h-96.8", "v134.4" ] ],
+    [ "ultrasonic1:GND", "esp:GND.2", "black", [ "v0", "h18" ] ],
+    [ "ultrasonic1:VCC", "esp:5V", "red", [ "h-153.6", "v230.4" ] ],
+    [ "pir1:VCC", "esp:5V", "red", [ "v9.6", "h-67.2", "v-124.8", "h57.6" ] ],
+    [ "pir1:OUT", "esp:27", "green", [ "v0", "h-67.34", "v-201.6" ] ],
+    [ "pir1:GND", "esp:GND.3", "black", [ "v19.2", "h86.14", "v-259.2" ] ]
+  ],
+  "dependencies": {}
+}
