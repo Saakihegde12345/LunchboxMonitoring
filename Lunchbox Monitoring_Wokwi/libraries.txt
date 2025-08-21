@@ -1,5 +1,0 @@
-PubSubClient
-ArduinoJson
-DallasTemperature
-DHT sensor library
-OneWire
