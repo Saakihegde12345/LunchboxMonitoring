@@ -1,0 +1,7 @@
+Battery percentage ingest( in console):
+
+fetch('/api/ingest/device/', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: '625dc0bb-bfcb-4887-a194-2c20546b48bd', readings: [{ sensor_type: 'batt', value: 15, unit: '%', recorded_at: new Date().toISOString() }] }) }) .then(r => r.ok ? r.json() : r.text().then(t => Promise.reject(new Error(r.status + ' ' + t)))) .then(console.log) .catch(console.error);
+
+Motion and Proximity ingest(Powershell)
+
+$payload = '{"api_key":"625dc0bb-bfcb-4887-a194-2c20546b48bd","readings":[{"sensor_type":"prox","value":8.5,"unit":"cm","recorded_at":"2025-08-16T18:30:00Z"},{"sensor_type":"motion","value":1,"unit":"","recorded_at":"2025-08-16T18:30:01Z"}]}'

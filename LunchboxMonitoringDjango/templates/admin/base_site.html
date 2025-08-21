@@ -1,0 +1,16 @@
+{% extends "admin/base.html" %}
+
+{% block branding %}
+  <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+    <div>
+      <h1 id="site-name">Django administration</h1>
+    </div>
+    {% if request.path != '/admin/login/' %}
+      <div>
+        <a href="{% url 'monitoring:dashboard-ui' %}" class="btn btn-primary" style="font-size:1em; padding: 6px 18px; border-radius: 6px; box-shadow: 0 2px 8px rgba(24,90,157,0.08);">Go to Dashboard</a>
+      </div>
+    {% endif %}
+  </div>
+{% endblock %}
+
+{% block extrahead %}{{ block.super }}{% endblock %}

@@ -1,0 +1,12 @@
+{% extends 'admin/base_site.html' %}
+
+{% block content %}
+  <h1>Admin Login</h1>
+  <form method="post" action="">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Log in</button>
+  </form>
+  <hr>
+  <a href="{% url 'monitoring:dashboard-ui' %}" class="btn btn-success mt-3">Go to Lunchbox Dashboard</a>
+{% endblock %}

@@ -1,0 +1,104 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+    <style>
+        body {
+            background: linear-gradient(120deg, #f8fafc 0%, #e3f0ff 100%);
+            min-height: 100vh;
+        }
+        .admin-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 1200px;
+            padding: 32px 24px;
+            background: #fff;
+            border-radius: 24px;
+            box-shadow: 0 8px 32px rgba(67,206,162,0.10);
+        }
+        /* Hide the sidebar */
+        #nav-sidebar {
+            display: none !important;
+        }
+        .admin-container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 32px 24px;
+            background: #fff;
+            border-radius: 24px;
+            box-shadow: 0 8px 32px rgba(67,206,162,0.10);
+        }
+        .admin-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .admin-header h1 {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: #185a9d;
+            margin-bottom: 8px;
+        }
+        .admin-header p {
+            color: #43cea2;
+            font-size: 1.2em;
+        }
+        .admin-sections {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 32px;
+            justify-content: center;
+        }
+        .admin-card {
+            background: #f6fafd;
+            border-radius: 18px;
+            box-shadow: 0 2px 12px rgba(67,206,162,0.08);
+            padding: 24px 20px;
+            min-width: 260px;
+            max-width: 340px;
+            flex: 1 1 260px;
+        }
+        .admin-card h2 {
+            font-size: 1.3em;
+            color: #185a9d;
+            margin-bottom: 12px;
+        }
+        .admin-card ul {
+            list-style: none;
+            padding: 0;
+        }
+        .admin-card ul li {
+            margin-bottom: 8px;
+            font-size: 1.08em;
+        }
+        .dashboard-btn {
+            background: linear-gradient(90deg, #43cea2 0%, #185a9d 100%);
+        }
+    </style>
+    <div class="admin-container">
+        <div class="admin-header text-center">
+            <h1 class="mb-0">Lunchbox Monitoring Admin Dashboard</h1>
+        </div>
+        <div class="admin-header">
+            <p>Welcome to the smart lunchbox monitoring system admin panel.</p>
+        </div>
+        <div class="admin-sections">
+            <div class="admin-card">
+                <h2>Lunchbox Monitoring</h2>
+                <ul>
+                    <li><a href="/admin/monitoring/alert/">Alerts</a></li>
+                    <li><a href="/admin/monitoring/lunchbox/">Lunchboxes</a></li>
+                    <li><a href="/admin/monitoring/sensorreading/">Sensor readings</a></li>
+                </ul>
+            </div>
+            <div class="admin-card">
+                <h2>Parent</h2>
+                <ul>
+                    <li><a href="/admin/parent/lunchboxassignment/">Lunchbox assignments</a></li>
+                    <li><a href="/admin/parent/parentnotification/">Parent notifications</a></li>
+                    <li><a href="/admin/parent/user/">Users</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+{% endblock %}

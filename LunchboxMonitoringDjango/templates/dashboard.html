@@ -1,0 +1,890 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Page Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="page-header d-flex justify-content-between align-items-center">
+                <h1 class="h2 mb-0">
+                    <i class="bi bi-speedometer2 me-2"></i>Dashboard
+                </h1>
+                <div class="btn-group">
+                    <button class="btn btn-outline-primary" type="button">
+                        <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                    </button>
+                    <button class="btn btn-outline-secondary" type="button">
+                        <i class="bi bi-gear me-1"></i> Settings
+                    </button>
+                </div>
+            </div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'monitoring:home' %}">Home</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Dashboard</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-white-50 mb-1">Active Lunchboxes</h6>
+                            <h2 class="mb-0">{{ stats.active }}</h2>
+                        </div>
+                        <div class="icon-shape bg-white-10 rounded-circle p-3">
+                            <i class="bi bi-thermometer-sun fs-2"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <span class="text-white-50 small">Updated {{ current_time|date:'H:i:s' }} UTC</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-white-50 mb-1">Normal</h6>
+                            <h2 class="mb-0">{{ stats.normal }}</h2>
+                        </div>
+                        <div class="icon-shape bg-white-10 rounded-circle p-3">
+                            <i class="bi bi-check-circle fs-2"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <span class="text-white-50 small">OK devices</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-dark-50 mb-1">Warning</h6>
+                            <h2 class="mb-0">{{ stats.warning }}</h2>
+                        </div>
+                        <div class="icon-shape bg-white-10 rounded-circle p-3">
+                            <i class="bi bi-exclamation-triangle fs-2"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <span class="text-dark-50 small">Needs attention</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3 mb-4">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-white-50 mb-1">Critical</h6>
+                            <h2 class="mb-0">{{ stats.critical }}</h2>
+                        </div>
+                        <div class="icon-shape bg-white-10 rounded-circle p-3">
+                            <i class="bi bi-exclamation-octagon fs-2"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <span class="text-white-50 small">Unresolved critical alerts</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="row">
+        <!-- Temperature Chart -->
+        <div class="col-lg-8 mb-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Temperature Trends</h5>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-sm btn-outline-secondary">24h</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary active">Week</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary">Month</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="position: relative; height: 300px;">
+                        <canvas id="temperatureChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Alerts -->
+        <div class="col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Recent Alerts</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush" id="recent-alerts-list">
+                        <div class="list-group-item text-muted small" id="alerts-placeholder">
+                            No alerts yet.
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer text-center">
+                    <button type="button" id="btn-view-all-alerts" class="btn btn-sm btn-outline-primary">
+                        View All Alerts
+                        <span id="alerts-unread-badge" class="badge rounded-pill bg-danger ms-2 d-none">0</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Lunchbox List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Lunchboxes</h5>
+                    <button class="btn btn-sm btn-primary">
+                        <i class="bi bi-plus-lg me-1"></i> Add Lunchbox
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th>Temperature</th>
+                                <th>Humidity</th>
+                                <th>Gas</th>
+                                <th>Battery</th>
+                                <th>Proximity</th>
+                                <th>Motion</th>
+                                <th>Last Updated</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% if lunchbox_rows %}
+                            {% for lb in lunchbox_rows %}
+                                <tr>
+                                    <td>#{{ lb.id }}</td>
+                                    <td>
+                                        {{ lb.name }}
+                                        {% if debug and lb.api_key %}
+                                            <span class="badge bg-light text-muted border ms-2" title="Device API key (dev-only)">{{ lb.api_key }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if lb.status == 'critical' %}
+                                            <span class="badge bg-danger">Critical</span>
+                                        {% elif lb.status == 'warning' %}
+                                            <span class="badge bg-warning text-dark">Warning</span>
+                                        {% else %}
+                                            <span class="badge bg-success">Normal</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ lb.temp }}</td>
+                                    <td>{{ lb.humi }}</td>
+                                    <td>{{ lb.gas }}</td>
+                                    <td>{{ lb.batt }}</td>
+                                    <td>{{ lb.prox }}</td>
+                                    <td>{% if lb.motion is not None %}{{ lb.motion|yesno:"Yes,No" }}{% else %}-{% endif %}</td>
+                                    <td>
+                                        {% if lb.last_updated %}
+                                            {{ lb.last_updated|timesince }} ago
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary me-1 btn-view-lunchbox" data-lunchbox-id="{{ lb.id }}" title="View">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary" title="Settings">
+                                            <i class="bi bi-gear"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="11" class="text-center py-4 text-muted">
+                                    No lunchboxes yet. Add one to begin monitoring.
+                                </td>
+                            </tr>
+                        {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Modal for lunchbox detail -->
+<div class="modal fade" id="lunchboxDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="lbModalTitle">Lunchbox Detail</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="lbModalLoading" class="text-center py-4">Loading...</div>
+                <div id="lbModalContent" style="display:none;">
+                    <div class="row mb-3" id="lbLatest"></div>
+                    <h6>Recent Readings</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm" id="lbHistoryTable">
+                            <thead><tr><th>Time</th><th>Sensor</th><th>Value</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div id="lbModalError" class="alert alert-danger d-none"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Temperature Chart
+    const ctx = document.getElementById('temperatureChart').getContext('2d');
+    const tempChartData = JSON.parse('{{ temp_chart_json|escapejs }}');
+
+    const temperatureChart = new Chart(ctx, {
+        type: 'line',
+        data: tempChartData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'nearest', intersect: false },
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: { mode: 'index', intersect: false },
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    title: { display: true, text: 'Temperature (°C)' }
+                },
+                x: {
+                    ticks: { maxRotation: 45, minRotation: 0, autoSkip: true, maxTicksLimit: 12 }
+                }
+            }
+        }
+    });
+
+    // Simple auto-refresh every 60s (placeholder)
+    setInterval(() => {
+        fetch(window.location.href, { headers: { 'X-Partial': 'temp-chart' }})
+            .then(r => r.text())
+            .then(() => { /* noop */ });
+    }, 60000);
+
+    // Time helpers (IST)
+    function formatIST(iso, withTZ=true){
+        if(!iso) return '';
+        // sv-SE provides a compact ISO-like format 'YYYY-MM-DD HH:mm:ss'
+        const s = new Date(iso).toLocaleString('sv-SE', { timeZone: 'Asia/Kolkata', hour12: false });
+        return withTZ ? (s + ' IST') : s;
+    }
+
+    // Lightweight lunchbox status polling every 30s
+    function humanizeAgo(iso) {
+        if(!iso) return '-';
+        const dt = new Date(iso);
+        const diffMs = Date.now() - dt.getTime();
+        const diffMin = Math.floor(diffMs/60000);
+        if (diffMin < 1) return 'just now';
+        if (diffMin === 1) return '1 minute ago';
+        return diffMin + ' minutes ago';
+    }
+    function updateLunchboxTable(data){
+        document.querySelectorAll('table tbody tr').forEach(tr=>{
+            const idCell = tr.querySelector('td');
+            if(!idCell) return;
+            const idMatch = idCell.textContent.trim().replace('#','');
+            const lb = data.lunchboxes.find(o=> String(o.id)===idMatch);
+            if(lb){
+                const cells = tr.querySelectorAll('td');
+                // columns: ID, Name, Status, Temp, Humidity, Gas, Battery, Proximity, Motion, Last Updated, Actions
+                cells[3].textContent = lb.temp!=null ? (lb.temp.toFixed(1)+ (lb.temp_unit||'')) : '-';
+                cells[4].textContent = lb.humi!=null ? (lb.humi.toFixed(0)+ (lb.humi_unit||'')) : '-';
+                cells[5].textContent = lb.gas!=null ? (lb.gas.toFixed(0)+ (lb.gas_unit||'')) : '-';
+                cells[6].textContent = lb.batt!=null ? (lb.batt.toFixed(0)+ (lb.batt_unit||'')) : '-';
+                cells[7].textContent = lb.prox!=null ? (lb.prox.toFixed(0)+ (lb.prox_unit||'')) : '-';
+                cells[8].textContent = lb.motion!=null ? (lb.motion? 'Yes':'No') : '-';
+                cells[9].textContent = lb.last_updated ? humanizeAgo(lb.last_updated) : '-';
+            }
+        });
+    }
+    function pollStatus(){
+        fetch('/api/lunchboxes/status/summary/', {headers:{'Accept':'application/json'}})
+          .then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); })
+          .then(data=> updateLunchboxTable(data))
+          .catch(()=>{});
+    }
+    setInterval(pollStatus, 30000);
+    setTimeout(pollStatus, 3000);
+
+    // --- WebSocket live updates (if Channels running) ---
+    (function(){
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        const sockets = {}; // id -> WebSocket
+        function connectFor(lbId){
+            if(sockets[lbId]) return;
+            const wsUrl = protocol + window.location.host + `/ws/monitoring/${lbId}/`;
+            try {
+                const socket = new WebSocket(wsUrl);
+                sockets[lbId] = socket;
+                socket.onopen = ()=>console.log('WS connected', wsUrl);
+                socket.onerror = (e)=>console.warn('WS error', lbId, e);
+                socket.onclose = (e)=>{ console.log('WS closed', lbId, e.code); delete sockets[lbId]; };
+                // Track a small LRU set of alert keys to prevent duplicates
+                const seenAlertKeys = new Set();
+                socket.onmessage = (e)=>{
+                    try {
+                        const data = JSON.parse(e.data);
+                        if(data.type === 'sensor_update'){
+                            document.querySelectorAll('table tbody tr').forEach(tr=>{
+                                const idCell = tr.querySelector('td');
+                                if(!idCell) return;
+                                if(idCell.textContent.trim() === '#'+lbId){
+                                    const cells = tr.querySelectorAll('td');
+                                    if(data.sensor_type === 'temp') cells[3].textContent = data.value.toFixed(1)+'C';
+                                    if(data.sensor_type === 'humi') cells[4].textContent = data.value.toFixed(0)+'%';
+                                    if(data.sensor_type === 'gas') cells[5].textContent = data.value.toFixed(0)+'ppm';
+                                    if(data.sensor_type === 'batt') cells[6].textContent = data.value.toFixed(0)+'%';
+                                    if(data.sensor_type === 'prox') cells[7].textContent = data.value.toFixed(0)+(data.unit||'cm');
+                                    if(data.sensor_type === 'motion') cells[8].textContent = (Number(data.value)>0 ? 'Yes' : 'No');
+                                    cells[9].textContent = 'just now';
+                                }
+                            });
+                            if(data.sensor_type === 'temp'){
+                                const ts = formatIST(data.recorded_at, false);
+                                const ds = temperatureChart.data.datasets[0];
+                                temperatureChart.data.labels.push(ts);
+                                ds.data.push(data.value);
+                                if(ds.data.length > 300){
+                                    ds.data.shift();
+                                    temperatureChart.data.labels.shift();
+                                }
+                                temperatureChart.update('none');
+                            }
+                        } else if(data.type === 'alert' || data.type === 'alert_notification') {
+                            // Ignore very old alerts (older than 72 hours)
+                            const cutoffMs = Date.now() - 72*60*60*1000;
+                            const t = data && data.created_at ? Date.parse(data.created_at) : NaN;
+                            if (Number.isNaN(t) || t < cutoffMs) return;
+                            // Deduplicate by key (prefer id if present, else lunchbox+type+time)
+                            const key = data.id ? `id:${data.id}` : `lb:${data.lunchbox||''}|type:${data.alert_type||''}|at:${data.created_at||''}`;
+                            if (seenAlertKeys.has(key)) return;
+                            seenAlertKeys.add(key);
+                            // Trim the set size to avoid unbounded growth
+                            if (seenAlertKeys.size > 100) {
+                                const first = seenAlertKeys.values().next().value; seenAlertKeys.delete(first);
+                            }
+                            // Add to sidebar (kept to 5 by renderAlertEntry)
+                            renderAlertEntry(data, true);
+                            // If the All Alerts modal is open, refresh page 1 to include the newest alert
+                            try {
+                                const modalEl = document.getElementById('allAlertsModal');
+                                if (modalEl && modalEl.classList.contains('show') && typeof loadAlertsPage === 'function') {
+                                    loadAlertsPage(1);
+                                }
+                            } catch(e) { /* ignore */ }
+                        }
+                    } catch(err){ console.warn('WS msg parse error', err); }
+                };
+            } catch(err){ console.warn('WS init failed', err); }
+        }
+        // Get IDs from existing table rows
+        const ids = Array.from(document.querySelectorAll('table tbody tr td:first-child'))
+            .map(td=>td.textContent.trim().replace('#',''))
+            .filter(v=>v && /^\d+$/.test(v));
+        if(ids.length){
+            ids.forEach(connectFor);
+        } else {
+            fetch('/api/lunchboxes/status/summary/')
+                .then(r=>r.json())
+                .then(d=>{ (d.lunchboxes||[]).forEach(lb=> connectFor(lb.id)); });
+        }
+    })();
+</script>
+
+<!-- All Alerts Modal (moved outside cards to avoid reflow/flicker) -->
+<div class="modal fade" id="allAlertsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">All Alerts</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <!-- Filters -->
+                <div class="p-2 border-bottom bg-light">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-12 col-md-3">
+                            <label class="form-label small mb-1" for="alerts-filter-q">Search</label>
+                            <input type="text" class="form-control form-control-sm" id="alerts-filter-q" placeholder="Message contains...">
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small mb-1" for="alerts-filter-status">Status</label>
+                            <select class="form-select form-select-sm" id="alerts-filter-status">
+                                <option value="">All</option>
+                                <option value="false">Unresolved</option>
+                                <option value="true">Resolved</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small mb-1" for="alerts-filter-lunchbox">Lunchbox</label>
+                            <select class="form-select form-select-sm" id="alerts-filter-lunchbox">
+                                <option value="">All</option>
+                                {% if lunchbox_rows %}
+                                    {% for lb in lunchbox_rows %}
+                                        <option value="{{ lb.id }}">#{{ lb.id }} - {{ lb.name }}</option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small mb-1" for="alerts-filter-type">Type</label>
+                            <select class="form-select form-select-sm" id="alerts-filter-type">
+                                <option value="">All</option>
+                                <option value="temp_high">Temperature High</option>
+                                <option value="temp_low">Temperature Low</option>
+                                <option value="humi_high">High Humidity</option>
+                                <option value="gas_high">High Gas</option>
+                                <option value="batt_low">Low Battery</option>
+                                <option value="prox_near">Object Too Near</option>
+                                <option value="motion_detected">Motion Detected</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small mb-1" for="alerts-filter-severity">Severity</label>
+                            <select class="form-select form-select-sm" id="alerts-filter-severity">
+                                <option value="">All</option>
+                                <option value="critical">Critical</option>
+                                <option value="warning">Warning</option>
+                                <option value="info">Information</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small mb-1" for="alerts-filter-from">From</label>
+                            <input type="date" class="form-control form-control-sm" id="alerts-filter-from">
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small mb-1" for="alerts-filter-to">To</label>
+                            <input type="date" class="form-control form-control-sm" id="alerts-filter-to">
+                        </div>
+                        <div class="col-12 col-md-3 d-flex gap-2">
+                            <button class="btn btn-sm btn-primary flex-grow-1" id="alerts-filter-apply">Apply</button>
+                            <button class="btn btn-sm btn-outline-secondary" id="alerts-filter-reset">Reset</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="list-group list-group-flush" id="all-alerts-list">
+                    <div class="list-group-item text-muted small">Loading...</div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between align-items-center flex-wrap">
+                <div class="d-flex flex-grow-1 justify-content-center gap-2">
+                    <span id="alerts-page-info" class="align-self-center small text-muted"></span>
+                    <button class="btn btn-outline-secondary btn-sm" id="alerts-loadmore-btn">Load more</button>
+                </div>
+                <button class="btn btn-secondary btn-sm ms-2" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alert Detail Modal -->
+<div class="modal fade" id="alertDetailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="alertModalTitle">Alert Detail</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="alertModalBody" class="small text-muted">Loading...</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // === Alerts: helpers, authenticated fetch, sidebar (5), modal pagination (10) ===
+    const alertModal = new bootstrap.Modal(document.getElementById('alertDetailModal'));
+    const allAlertsModal = new bootstrap.Modal(document.getElementById('allAlertsModal'));
+    // Simple client-side cache for recent alerts to keep UI fresh even if modal is closed
+    let alertsCache = [];
+    let alertsUnread = 0;
+    const unreadBadge = document.getElementById('alerts-unread-badge');
+
+    function severityBadgeClass(sev){
+        if(sev==='critical') return 'danger';
+        if(sev==='warning') return 'warning text-dark';
+        return 'info';
+    }
+    function formatAlertTitle(a){
+        return `${a.lunchbox_name || 'Lunchbox'}_${a.alert_type}`;
+    }
+
+    // Centralized authenticated fetch
+    async function apiFetch(url, opts = {}) {
+        const res = await fetch(url, {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+            ...opts
+        });
+        if (!res.ok) {
+            const text = await res.text().catch(()=> '');
+            const err = new Error(`HTTP ${res.status} ${res.statusText} ${text||''}`);
+            err.status = res.status;
+            throw err;
+        }
+        return res.json();
+    }
+
+    // Normalize various API shapes to {count, results[]}
+    function normalizeAlerts(data){
+        if (Array.isArray(data)) return {count: data.length, results: data};
+        if (data && Array.isArray(data.results)) return {count: Number(data.count ?? data.results.length), results: data.results};
+        if (data && Array.isArray(data.items)) return {count: Number(data.count ?? data.items.length), results: data.items};
+        return {count: Number(data?.count ?? 0), results: Array.isArray(data?.data) ? data.data : []};
+    }
+
+    // Build querystring from filters with pagination
+    function buildAlertFilterQS(extra={}){
+        const q = document.getElementById('alerts-filter-q')?.value?.trim();
+        const status = document.getElementById('alerts-filter-status')?.value;
+        const lunchbox = document.getElementById('alerts-filter-lunchbox')?.value;
+        const type = document.getElementById('alerts-filter-type')?.value;
+        const sev = document.getElementById('alerts-filter-severity')?.value;
+        const from = document.getElementById('alerts-filter-from')?.value;
+        const to = document.getElementById('alerts-filter-to')?.value;
+        const params = new URLSearchParams();
+        if (q) params.set('q', q);
+        if (status) params.set('is_resolved', status);
+        if (lunchbox) params.set('lunchbox', lunchbox);
+        if (type) params.set('alert_type', type);
+        if (sev) params.set('severity', sev);
+        if (from) params.set('from', from);
+        if (to) params.set('to', to);
+        if (extra.limit!=null) params.set('limit', String(extra.limit));
+        if (extra.offset!=null) params.set('offset', String(extra.offset));
+        return '?' + params.toString();
+    }
+
+    // DB-backed full list for modal (always hits /api/alerts/ to enable pagination + filters)
+    async function getAllAlerts({limit=10, offset=0}={}){
+        const qs = buildAlertFilterQS({limit, offset});
+        try{
+            const data = await apiFetch(`/api/alerts/${qs}`);
+            return normalizeAlerts(data);
+        }catch(e){
+            if (e.status === 401) throw new Error('Not authenticated. Please sign in.');
+            if (e.status === 403) throw new Error('Not permitted to view alerts.');
+            throw e;
+        }
+    }
+
+    // Lightweight recent list for sidebar/background; falls back to /api/alerts/recent/
+    async function getRecentAlerts({limit=5, offset=0}={}){
+        const params = new URLSearchParams();
+        if (limit!=null) params.set('limit', String(limit));
+        if (offset!=null) params.set('offset', String(offset));
+        // Restrict to a recent window (last 72 hours) so sidebar doesn't show very old alerts
+        const cutoff = new Date(Date.now() - 72*60*60*1000).toISOString().slice(0,10); // YYYY-MM-DD
+        params.set('from', cutoff);
+        const qs = '?' + params.toString();
+        try{
+            const data = await apiFetch(`/api/alerts/${qs}`);
+            const norm = normalizeAlerts(data);
+            // Extra client-side guard: filter again by created_at >= cutoffMs
+            const cutoffMs = Date.now() - 72*60*60*1000;
+            const filtered = (norm.results||[]).filter(a=>{
+                const t = a && a.created_at ? Date.parse(a.created_at) : NaN;
+                return !Number.isNaN(t) && t >= cutoffMs;
+            });
+            return {count: filtered.length, results: filtered};
+        }catch(e){
+            // optional fallback if /api/alerts/ is not available
+            if (e.status === 404) {
+                const data = await apiFetch(`/api/alerts/recent/${qs}`);
+                const norm = normalizeAlerts(data);
+                const cutoffMs = Date.now() - 72*60*60*1000;
+                const filtered = (norm.results||[]).filter(a=>{
+                    const t = a && a.created_at ? Date.parse(a.created_at) : NaN;
+                    return !Number.isNaN(t) && t >= cutoffMs;
+                });
+                return {count: filtered.length, results: filtered};
+            }
+            throw e;
+        }
+    }
+
+    // Render single entry; keep sidebar at 5
+    function renderAlertEntry(alertObj, prepend=false, listId='recent-alerts-list'){
+        const list = document.getElementById(listId);
+        if(!list) return;
+    const ph = list.querySelector('#alerts-placeholder'); if(ph && ph.parentElement===list) ph.remove();
+
+        const btn = document.createElement('button');
+        btn.type='button';
+        btn.className='list-group-item list-group-item-action text-start';
+        btn.dataset.alertId = alertObj.id || ('ephemeral_'+Date.now());
+        btn.dataset.alertJson = JSON.stringify(alertObj);
+        btn.innerHTML = `
+            <div class="d-flex w-100 justify-content-between">
+                <strong class="mb-1">${(alertObj.lunchbox_name||'Box')}_${alertObj.alert_type}</strong>
+                <small class="text-muted">${alertObj.created_at ? formatIST(alertObj.created_at) : 'just now'}</small>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="small text-truncate me-2" style="max-width:60%">${alertObj.message||''}</span>
+                <span class="badge bg-${severityBadgeClass(alertObj.severity).replace(' text-dark','')} ${alertObj.severity==='warning'?'text-dark':''}">${alertObj.severity}</span>
+            </div>`;
+        btn.addEventListener('click', ()=>openAlertModalFromElement(btn));
+        if(prepend) list.prepend(btn); else list.appendChild(btn);
+
+        if(listId==='recent-alerts-list'){
+            // Trim to the 5 most recent entries safely
+            const items = Array.from(list.querySelectorAll('.list-group-item'));
+            while(items.length > 5){
+                const el = items.pop();
+                if (el && el.parentElement === list) {
+                    list.removeChild(el);
+                }
+            }
+        }
+    }
+
+    function bumpUnread(){
+        alertsUnread++;
+        if (unreadBadge){ unreadBadge.textContent = String(alertsUnread); unreadBadge.classList.remove('d-none'); }
+    }
+
+    function clearUnread(){
+        alertsUnread = 0;
+        if (unreadBadge){ unreadBadge.textContent = '0'; unreadBadge.classList.add('d-none'); }
+    }
+
+    function openAlertModalFromElement(el){
+        try {
+            // Hide the list modal if it is open to prevent stacked modals/backdrop flicker
+            const listModalEl = document.getElementById('allAlertsModal');
+            if (listModalEl && listModalEl.classList.contains('show')) {
+                try { allAlertsModal.hide(); } catch(e){}
+            }
+            const data = JSON.parse(el.dataset.alertJson);
+            document.getElementById('alertModalTitle').textContent = formatAlertTitle(data);
+            const body = document.getElementById('alertModalBody');
+            body.innerHTML = `
+                <div class="mb-2"><strong>Lunchbox:</strong> ${data.lunchbox_name || 'N/A'} ${data.lunchbox ? '(#'+data.lunchbox+')':''}</div>
+                <div class="mb-2"><strong>Alert Type:</strong> ${data.alert_type} ${data.alert_type_display? '('+data.alert_type_display+')':''}</div>
+                <div class="mb-2"><strong>Severity:</strong> <span class="badge bg-${severityBadgeClass(data.severity).replace(' text-dark','')} ${data.severity==='warning'?'text-dark':''}">${data.severity_display || data.severity}</span></div>
+                <div class="mb-2"><strong>Message:</strong><br/>${data.message||''}</div>
+                <div class="mb-2"><strong>Created At:</strong> ${data.created_at ? formatIST(data.created_at) : 'just now'}</div>
+                ${data.sensor_reading ? `<div class='mb-2'><strong>Reading:</strong> ${data.sensor_reading.value} ${data.sensor_reading.unit||''} (${data.sensor_reading.sensor_type}) at ${formatIST(data.sensor_reading.recorded_at)}`:''}
+            `;
+            alertModal.show();
+        } catch(e){ console.warn('Failed to open alert modal', e); }
+    }
+
+    // Sidebar: load 5 alerts on page load; independent from modal
+    document.addEventListener('DOMContentLoaded', async ()=>{
+        const sidebarList = document.getElementById('recent-alerts-list');
+        if(!sidebarList) return;
+        try{
+            const data = await getRecentAlerts({limit:5, offset:0});
+            sidebarList.innerHTML = '';
+            alertsCache = data.results;
+            data.results.forEach(a=> renderAlertEntry(a,false,'recent-alerts-list'));
+            if(!sidebarList.children.length){
+                sidebarList.innerHTML = '<div class="list-group-item text-muted small" id="alerts-placeholder">No alerts yet.</div>';
+            }
+        }catch(err){
+            console.warn('Recent alerts load failed:', err);
+            sidebarList.innerHTML = `<div class="list-group-item text-danger small" id="alerts-placeholder">Failed to load alerts. ${err.message||''}</div>`;
+        }
+    });
+
+    // Background polling to keep cache fresh even when modal is closed
+    async function backgroundRefreshAlerts(){
+        try{
+            const {results} = await getRecentAlerts({limit:10, offset:0});
+            // Merge: place newest at front if not already first
+            if (results && results.length){
+                const newest = results[0];
+                const currentNewest = alertsCache[0];
+                if (!currentNewest || (newest.id && currentNewest.id && newest.id !== currentNewest.id)){
+                    // Update sidebar, cache, and unread
+                    renderAlertEntry(newest, true, 'recent-alerts-list');
+                    alertsCache = results;
+                    bumpUnread();
+                } else {
+                    alertsCache = results;
+                }
+            }
+        } catch(e){ /* ignore polling errors */ }
+    }
+    setInterval(backgroundRefreshAlerts, 20000);
+
+    // All Alerts modal pagination (10 per page)
+    let alertsPage = 1, alertsTotal = 0;
+    const alertsPageSize = 10;
+    let alertsLoaded = 0;
+
+    async function loadAlertsPage(page){
+        const modalList = document.getElementById('all-alerts-list');
+        const pageInfo = document.getElementById('alerts-page-info');
+        const loadMoreBtn = document.getElementById('alerts-loadmore-btn');
+
+        // First page replaces content; subsequent pages append
+        if (page === 1){
+            modalList.innerHTML = '<div class="list-group-item text-muted small">Loading...</div>';
+            alertsLoaded = 0;
+        }
+        pageInfo.textContent = '';
+        loadMoreBtn.disabled = true;
+
+        try{
+            const {count, results} = await getAllAlerts({limit:alertsPageSize, offset:(page-1)*alertsPageSize});
+            alertsTotal = Number(count)||0;
+
+            if (page === 1) modalList.innerHTML = '';
+            results.forEach(a=> renderAlertEntry(a,false,'all-alerts-list'));
+            if(!modalList.children.length){
+                modalList.innerHTML = '<div class="list-group-item text-muted small">No alerts found.</div>';
+            }
+
+            alertsLoaded = Math.min(alertsLoaded + results.length, alertsTotal || alertsLoaded + results.length);
+            pageInfo.textContent = alertsTotal ? `Showing ${alertsLoaded} of ${alertsTotal}` : `Showing ${alertsLoaded}`;
+
+            // Enable load more if there are more to load
+            loadMoreBtn.disabled = (alertsTotal && alertsLoaded >= alertsTotal);
+        }catch(err){
+            console.warn('All alerts load failed:', err);
+            if (page === 1) {
+                modalList.innerHTML = `<div class="list-group-item text-danger small">Failed to load alerts. ${err.message||''}</div>`;
+            }
+            pageInfo.textContent = '';
+            loadMoreBtn.disabled = false;
+        }
+    }
+
+    document.getElementById('btn-view-all-alerts').addEventListener('click', ()=>{
+        // Hide detail modal if open to avoid focus/flicker issues
+        const detailEl = document.getElementById('alertDetailModal');
+        if (detailEl && detailEl.classList.contains('show')) {
+            try { alertModal.hide(); } catch(e){}
+        }
+        // Pre-render from cache for instant UX
+        const listEl = document.getElementById('all-alerts-list');
+        if (alertsCache && alertsCache.length){
+            listEl.innerHTML = '';
+            alertsCache.forEach(a=> renderAlertEntry(a,false,'all-alerts-list'));
+        } else {
+            listEl.innerHTML = '<div class="list-group-item text-muted small">Loading...</div>';
+        }
+        alertsPage = 1;
+        allAlertsModal.show();
+        loadAlertsPage(alertsPage);
+        clearUnread();
+    });
+    document.getElementById('alerts-loadmore-btn').addEventListener('click', ()=>{
+        alertsPage += 1;
+        loadAlertsPage(alertsPage);
+    });
+
+    // Bind filter apply/reset once
+    document.getElementById('alerts-filter-apply').addEventListener('click', ()=>{
+        alertsPage = 1;
+        loadAlertsPage(alertsPage);
+    });
+    document.getElementById('alerts-filter-reset').addEventListener('click', ()=>{
+        ['alerts-filter-q','alerts-filter-status','alerts-filter-lunchbox','alerts-filter-type','alerts-filter-severity','alerts-filter-from','alerts-filter-to']
+          .forEach(id=>{ const el = document.getElementById(id); if(!el) return; if(el.tagName==='SELECT') el.selectedIndex=0; else el.value=''; });
+        alertsPage = 1;
+        loadAlertsPage(alertsPage);
+    });
+</script>
+
+<script>
+    // Lunchbox detail modal logic
+    const detailModalEl = document.getElementById('lunchboxDetailModal');
+    const lbModal = new bootstrap.Modal(detailModalEl);
+    function fetchLunchboxDetail(id) {
+        const loading = document.getElementById('lbModalLoading');
+        const content = document.getElementById('lbModalContent');
+        const errorBox = document.getElementById('lbModalError');
+        loading.style.display='block';
+        content.style.display='none';
+        errorBox.classList.add('d-none');
+        fetch(`/api/lunchboxes/${id}/detail-data/`, {headers:{'Accept':'application/json'}})
+            .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+            .then(data=>{
+                 document.getElementById('lbModalTitle').textContent = data.lunchbox.name + ' (#'+data.lunchbox.id+')';
+                 const latestDiv = document.getElementById('lbLatest');
+                 latestDiv.innerHTML = '';
+                 const sensorsOrder = ['temp','humi','gas','batt','prox','motion'];
+                 sensorsOrder.forEach(key=>{
+                        if(data.latest[key]){
+                            const item = data.latest[key];
+                            latestDiv.innerHTML += `<div class="col-md-4 mb-2"><div class="card border-0 shadow-sm"><div class="card-body p-2 text-center"><div class="fw-semibold">${key.toUpperCase()}</div><div>${item.value} ${item.unit||''}</div><small class=\"text-muted\">${formatIST(item.recorded_at)}</small></div></div></div>`;
+                        }
+                 });
+                 const tbody = document.querySelector('#lbHistoryTable tbody');
+                 tbody.innerHTML='';
+                 data.recent_history.forEach(r=>{
+                     const when = formatIST(r.recorded_at);
+                     tbody.innerHTML += `<tr><td>${when}</td><td>${r.label}</td><td>${r.value} ${r.unit||''}</td></tr>`;
+                 });
+                 loading.style.display='none';
+                 content.style.display='block';
+            })
+            .catch(err=>{
+                 loading.style.display='none';
+                 errorBox.textContent = 'Failed to load: '+ err.message;
+                 errorBox.classList.remove('d-none');
+            });
+    }
+    document.querySelectorAll('.btn-view-lunchbox').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+             const id = btn.getAttribute('data-lunchbox-id');
+             lbModal.show();
+             fetchLunchboxDetail(id);
+        });
+    });
+</script>
+
+{% endblock %}
